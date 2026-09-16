@@ -1,0 +1,36 @@
+{
+  "id": "byok-ai",
+  "name": "BYOK AI",
+  "icon": "icon.svg",
+  "tagline": "Bring your own AI account",
+  "description": "Bring your own OpenAI, Anthropic, Google, Mistral, or Bedrock account for in-app AI. Connect Claude, ChatGPT, the OpenAI API, Gemini, GitHub Copilot, xAI, or OpenRouter once and use it from the Ask AI research tab, the AI Agent thread, and the AI Screener, plus `gloomberb ai` on the command line. Requests go from your machine to the provider you connected; nothing is routed through Gloom Cloud.",
+  "categories": [
+    "ai",
+    "research"
+  ],
+  "targets": [
+    "cli",
+    "tui",
+    "desktop"
+  ],
+  "hosts": [
+    "api.anthropic.com",
+    "api.openai.com",
+    "chatgpt.com",
+    "generativelanguage.googleapis.com",
+    "api.githubcopilot.com",
+    "github.com",
+    "api.x.ai",
+    "openrouter.ai"
+  ],
+  "contributes": {
+    "panes": [
+      "local-agent-workspace",
+      "ai-screener"
+    ],
+    "capabilities": [
+      "ai.runner"
+    ]
+  },
+  "minGloom": "0.13.3"
+}
