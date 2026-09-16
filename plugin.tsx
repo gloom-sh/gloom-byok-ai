@@ -212,7 +212,7 @@ export function createByokAiPlugin({ setupRunHost, cliCommands }: ByokAiPluginOp
     id: "byok-ai",
     name: "BYOK AI",
     version: "1.0.0",
-    description: "Bring your own OpenAI, Anthropic, Google, Mistral, or Bedrock account for in-app AI",
+    description: "Bring your own Anthropic, OpenAI, Google, GitHub Copilot, xAI, or OpenRouter account for in-app AI",
     homepage: "https://github.com/gloom-sh/gloom-byok-ai",
     toggleable: true,
     // The panes, threads, screeners, and provider defaults saved while this was

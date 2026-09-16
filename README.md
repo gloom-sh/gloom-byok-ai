@@ -1,6 +1,6 @@
 # BYOK AI for Gloom
 
-Bring your own OpenAI, Anthropic, Google, Mistral, or Bedrock account for in-app AI. Connect Claude, ChatGPT, the OpenAI API, Gemini, GitHub Copilot, xAI, or OpenRouter once, and use it from three places: the **Ask AI** tab in ticker research, the **AI Agent** thread that can drive the app for you, and the **AI Screener** that turns a sentence into a table of validated tickers.
+Bring your own Anthropic, OpenAI, Google, GitHub Copilot, xAI, or OpenRouter account for in-app AI. Connect Claude, ChatGPT, the OpenAI API, Gemini, GitHub Copilot, xAI, or OpenRouter once, and use it from three places: the **Ask AI** tab in ticker research, the **AI Agent** thread that can drive the app for you, and the **AI Screener** that turns a sentence into a table of validated tickers.
 
 Requests go from your machine to the provider you connected. Nothing is routed through Gloom Cloud, and no key of ours is involved: the account, the quota, and the bill are yours.
 
