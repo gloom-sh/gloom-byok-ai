@@ -20,7 +20,7 @@
     "typebox": "1.1.38"
   },
   "peerDependencies": {
-    "gloomberb": ">=0.13.3",
+    "gloomberb": ">=0.15.0",
     "react": ">=19"
   },
   "peerDependenciesMeta": {
