@@ -46,7 +46,7 @@ import { useAiScreenerMarketRuntime } from "./market-runtime";
 import { useAiScreenerFooter } from "./footer";
 import { useAiScreenerEditorRuntime } from "./editor-runtime";
 import { useAiScreenerKeyboard } from "./keyboard";
-import { AiScreenerTabsBar } from "./tabs-bar";
+import { AiScreenerTabsBar, useAiScreenerTabs } from "./tabs-bar";
 import {
   AI_DEFAULT_MODEL_SETTING_KEY,
   AI_DEFAULT_PROVIDER_SETTING_KEY,
@@ -368,21 +368,25 @@ export function AiScreenerPane({ focused, width, height }: PaneProps) {
     onSaveEditor: saveEditor,
   });
 
+  const { registration: tabsRegistration, tabsInHeader } = useAiScreenerTabs({
+    activeTab,
+    addTab,
+    editTab,
+    editorState,
+    focused,
+    removeTab,
+    setActiveTabId,
+    setCursorSymbol,
+    tabs,
+  });
+
   return (
     <Box flexDirection="column" width={width} height={height}>
-      <Box height={1}>
-        <AiScreenerTabsBar
-          activeTab={activeTab}
-          addTab={addTab}
-          editTab={editTab}
-          editorState={editorState}
-          focused={focused}
-          removeTab={removeTab}
-          setActiveTabId={setActiveTabId}
-          setCursorSymbol={setCursorSymbol}
-          tabs={tabs}
-        />
-      </Box>
+      {!tabsInHeader && (
+        <Box height={1}>
+          <AiScreenerTabsBar registration={tabsRegistration} />
+        </Box>
+      )}
 
       {readyProviders.length === 0 && (
         <Box flexDirection="column" paddingX={1} paddingTop={1}>
