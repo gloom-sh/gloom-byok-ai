@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { useEffect } from "react";
-import { Box, Text, Textarea, type InputRenderable, type TextareaRenderable } from "gloomberb/ui";
+import { Box, Text, Textarea, useUiCapabilities, type InputRenderable, type TextareaRenderable } from "gloomberb/ui";
 import { Button, Notice } from "gloomberb/components";
 import { colors } from "gloomberb/theme";
 import { t } from "gloomberb/i18n";
@@ -85,6 +85,7 @@ export function AiScreenerEditorView({
   onSave: () => void;
   onCancel: () => void;
 }) {
+  const { nativePaneChrome } = useUiCapabilities();
   return (
     <>
       <Box flexDirection="column" paddingX={1} paddingTop={1}>
@@ -116,8 +117,9 @@ export function AiScreenerEditorView({
         />
       </Box>
 
-      {/* Ctrl+S saves and Esc cancels, like the buttons. */}
-      <Box flexDirection="column" paddingX={1} flexShrink={0}>
+      {/* Ctrl+S saves and Esc cancels, like the buttons. On the desktop the
+          pane's bottom edge clips buttons that sit flush against it. */}
+      <Box flexDirection="column" paddingX={1} paddingBottom={nativePaneChrome ? 1 : 0} flexShrink={0}>
         {editorState.error && <Notice tone="negative">{editorState.error}</Notice>}
         <Box flexDirection="row" gap={1}>
           <Button label={t("Save")} variant="primary" onPress={onSave} />
