@@ -204,6 +204,28 @@ describe("AiScreenerPane", () => {
       .toEqual(EMPTY_PANE_STATE);
   });
 
+  test("starts without a tab strip and creates the first screener from the empty state", async () => {
+    setDetectedProviders([makeProvider("anthropic", "Claude")]);
+
+    testSetup = await testRender(<ScreenerHarness prompt="" providerId="anthropic" />, { width: 96, height: 18 });
+
+    const frame = await waitForFrameToContain("No AI screeners yet.");
+    // No run and no tab must not read as the active tab running.
+    expect(frame).toContain("[t]new");
+    expect(frame).not.toContain("[Esc]stop");
+    const lines = frame.split("\n");
+    expect(lines.some((line) => line.trim() === "+")).toBe(false);
+
+    const row = lines.findIndex((line) => line.includes("New screener"));
+    expect(row).toBeGreaterThanOrEqual(0);
+    await act(async () => {
+      await testSetup!.mockMouse.click(lines[row]!.indexOf("New screener") + 1, row);
+      await testSetup!.renderOnce();
+    });
+    const editor = await waitForFrameToContain("[Ctrl+S]save");
+    expect(editor).toContain("New Screener");
+  });
+
   test("shows the account connection message before trying to run", async () => {
     const provider = makeProvider("anthropic", "Claude");
     setDetectedProviders([provider]);
@@ -381,9 +403,20 @@ describe("AiScreenerPane", () => {
     });
 
     const frame = await waitForFrameToContain("[Ctrl+S]save");
-    expect(frame).toContain("[Ctrl+S]save");
-    expect(frame).toContain("[Esc]cancel");
     expect(frame).toContain("Find quality compounders.");
+    // The form draws Save and Cancel, so the footer does not repeat Cancel.
+    expect(frame).not.toContain("[Esc]cancel");
+    const lines = frame.split("\n");
+    const buttonRow = lines.findIndex((line) => /Save\s+Cancel/.test(line));
+    expect(buttonRow).toBeGreaterThanOrEqual(0);
+
+    await act(async () => {
+      await testSetup!.mockMouse.click(lines[buttonRow]!.indexOf("Cancel") + 1, buttonRow);
+      await testSetup!.renderOnce();
+    });
+    const closed = await waitForFrameToContain("[e]dit");
+    expect(closed).toContain("Strong cash flow durability");
+    expect(closed).not.toContain("[Ctrl+S]save");
   });
 
   test("does not show a stale prompt-changed status while a refresh is active", async () => {

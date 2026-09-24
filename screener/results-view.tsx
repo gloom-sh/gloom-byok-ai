@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Box, Text } from "gloomberb/ui";
-import { EmptyState, Spinner, TickerListTableView, type DataTableKeyEvent } from "gloomberb/components";
+import { Button, PaneStatusBody, TickerListTableView, type DataTableKeyEvent } from "gloomberb/components";
 import type { ColumnConfig } from "gloomberb/types/config";
 import type { TickerFinancials } from "gloomberb/types/financials";
 import type { TickerRecord } from "gloomberb/types/ticker";
@@ -20,13 +20,16 @@ export function AiScreenerResultsView({
   financialsMap,
   focused,
   isRunningActiveTab,
-  promptDirty,
+  noProvidersReady,
   resultMap,
   sortedTickers,
   width,
+  onCreate,
   onHeaderClick,
+  onOpenSettings,
   onRootKeyDown,
   onRowActivate,
+  onRun,
   setCursorSymbol,
 }: {
   activeSort: ScreenerSortPreference;
@@ -37,54 +40,52 @@ export function AiScreenerResultsView({
   financialsMap: Map<string, TickerFinancials>;
   focused: boolean;
   isRunningActiveTab: boolean;
-  promptDirty: boolean;
+  noProvidersReady: boolean;
   resultMap: Map<string, ValidatedScreenerResult>;
   sortedTickers: TickerRecord[];
   width: number;
+  onCreate: () => void;
   onHeaderClick: (columnId: string) => void;
+  onOpenSettings: () => void;
   onRootKeyDown: (event: DataTableKeyEvent) => boolean | void;
   onRowActivate: (ticker: TickerRecord) => void;
+  onRun: () => void;
   setCursorSymbol: (symbol: string) => void;
 }) {
   const detailTextWidth = Math.max(12, width - 2);
-  const warningColor = colors.borderFocused;
   const summaryLines = useMemo(() => (
     activeTab?.summary
       ? wrapTextLines(activeTab.summary, detailTextWidth, 2)
       : []
   ), [activeTab?.summary, detailTextWidth]);
+  // Run errors, lookup warnings and a stale prompt are the footer's; the body
+  // keeps the results and says what to do when there are none.
+  const providerMessage = noProvidersReady
+    ? t("No AI providers are ready. Connect an account in pane settings.")
+    : undefined;
+  const settingsAction = (variant: "primary" | "secondary") => (
+    <Button label={t("Open AI settings")} variant={variant} compact onPress={onOpenSettings} />
+  );
+
+  if (!activeTab) {
+    return (
+      <PaneStatusBody
+        empty
+        emptyTitle={t("No AI screeners yet.")}
+        emptyMessage={providerMessage}
+        actions={(
+          <>
+            <Button label={t("New screener")} variant="primary" compact onPress={onCreate} />
+            {noProvidersReady && settingsAction("secondary")}
+          </>
+        )}
+      />
+    );
+  }
 
   return (
     <>
-      {activeTab?.lastError && (
-        <Box flexDirection="column" paddingX={1} paddingTop={1}>
-          {wrapTextLines(activeTab.lastError, detailTextWidth, 2).map((line, index) => (
-            <Box key={`error:${index}`} height={1}>
-              <Text fg={colors.negative}>{line || " "}</Text>
-            </Box>
-          ))}
-        </Box>
-      )}
-
-      {activeTab?.lastWarning && !activeTab.lastError && (
-        <Box flexDirection="column" paddingX={1} paddingTop={1}>
-          {wrapTextLines(activeTab.lastWarning, detailTextWidth, 2).map((line, index) => (
-            <Box key={`warning:${index}`} height={1}>
-              <Text fg={warningColor}>{line || " "}</Text>
-            </Box>
-          ))}
-        </Box>
-      )}
-
-      {activeTab && promptDirty && !isRunningActiveTab && activeTab.results.length > 0 && (
-        <Box flexDirection="column" paddingX={1} paddingTop={1} height={1}>
-          <Text fg={warningColor}>
-            {t("Prompt or provider changed. These matches are from the previous run.")}
-          </Text>
-        </Box>
-      )}
-
-      {activeTab && summaryLines.length > 0 && !activeTab.lastError && (
+      {summaryLines.length > 0 && !activeTab.lastError && (
         <Box flexDirection="column" paddingX={1}>
           {summaryLines.map((line, index) => (
             <Box key={`summary:${index}`} height={1}>
@@ -94,14 +95,17 @@ export function AiScreenerResultsView({
         </Box>
       )}
       <Box flexGrow={1} minHeight={0}>
-        {!activeTab ? (
-          <Box padding={1} flexGrow={1}>
-            <EmptyState title={t("No AI screeners yet.")} hint={t("Click + to create one.")} />
-          </Box>
-        ) : isRunningActiveTab && activeTab.results.length === 0 ? (
-          <Box padding={1} flexGrow={1}>
-            <Spinner label={t("Running AI screener...")} />
-          </Box>
+        {isRunningActiveTab && activeTab.results.length === 0 ? (
+          <PaneStatusBody loading loadingLabel={t("Running AI screener...")} />
+        ) : activeTab.results.length === 0 ? (
+          <PaneStatusBody
+            empty
+            emptyTitle={activeTab.lastSuccessAt ? t("No resolved matches in this run.") : t("No matches yet.")}
+            emptyMessage={providerMessage}
+            actions={noProvidersReady
+              ? settingsAction("primary")
+              : <Button label={t("Run")} variant="primary" compact onPress={onRun} />}
+          />
         ) : (
           <TickerListTableView
             focused={focused}
@@ -129,10 +133,8 @@ export function AiScreenerResultsView({
             onRootKeyDown={onRootKeyDown}
             resetScrollKey={activeTab.id}
             onRowActivate={onRowActivate}
-            emptyTitle={activeTab.lastSuccessAt ? "No resolved matches in this run." : "No matches yet."}
-            emptyHint={promptDirty && !isRunningActiveTab
-              ? "Prompt changed. Refresh to rerun."
-              : activeTab.lastSuccessAt ? "Review the summary and lookup warnings, or refine the prompt." : "Run this screener. Use PS to customize columns."}
+            emptyTitle={t("No matches yet.")}
+            emptyHint=""
           />
         )}
       </Box>

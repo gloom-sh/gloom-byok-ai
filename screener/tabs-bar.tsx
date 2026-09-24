@@ -6,7 +6,8 @@ import type { AiScreenerTab, ScreenerEditorState } from "./model";
 /**
  * The screener tab strip. On the desktop the pane chrome draws it in the title
  * bar; the terminal keeps it in the body, so `tabsInHeader` tells the pane
- * whether to render `AiScreenerTabsBar` and reserve its row.
+ * whether to render `AiScreenerTabsBar` and reserve its row. The registration
+ * is null while there is no screener to show.
  */
 export function useAiScreenerTabs({
   activeTab,
@@ -28,13 +29,15 @@ export function useAiScreenerTabs({
   setActiveTabId: (tabId: string | null) => void;
   setCursorSymbol: (symbol: string | null) => void;
   tabs: AiScreenerTab[];
-}): { registration: PaneHeaderTabsRegistration; tabsInHeader: boolean } {
+}): { registration: PaneHeaderTabsRegistration | null; tabsInHeader: boolean } {
   const lastTabClickRef = useRef<{ tabId: string; at: number } | null>(null);
   const displayTabs = editorState?.mode === "create"
     ? [...tabs.map((tab) => ({ id: tab.id, title: tab.title })), { id: "__draft__", title: "New Screener" }]
     : tabs.map((tab) => ({ id: tab.id, title: tab.title }));
 
-  const registration: PaneHeaderTabsRegistration = {
+  // With no screener there is no strip: a lone "+" would say what the empty
+  // state's create action already says.
+  const registration: PaneHeaderTabsRegistration | null = displayTabs.length === 0 ? null : {
     tabs: displayTabs.map((tab) => {
       const isDraft = tab.id === "__draft__";
       return {
