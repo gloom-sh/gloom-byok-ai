@@ -8,7 +8,14 @@ import { useAppSelector, usePaneTicker } from "gloomberb/react";
 import { usePluginConfigState, usePluginState } from "gloomberb/react";
 import { useInlineTickers } from "gloomberb/react";
 import { MarkdownText } from "gloomberb/components";
-import { getMessageComposerBlockHeight, MessageComposer, Spinner, usePaneFooter } from "gloomberb/components";
+import {
+  EmptyState,
+  getMessageComposerBlockHeight,
+  MessageComposer,
+  PaneStatusBody,
+  Spinner,
+  usePaneFooter,
+} from "gloomberb/components";
 import { colors } from "gloomberb/theme";
 import { t } from "gloomberb/i18n";
 import { buildTickerAiContext } from "./ticker-context";
@@ -336,24 +343,25 @@ export function AskAiResearchTab({ width, height, focused, onCapture }: TickerRe
   const { catalog, openTicker } = useInlineTickers(messages.map((message) => message.content));
   const thinking = messages.some((message) => message.loading);
 
+  const canCycleProvider = availableProviders.length > 1 && !!ticker;
   usePaneFooter("ask-ai", () => ({
     info: thinking
       ? [{ id: "thinking", parts: [{ text: "Thinking…", tone: "muted" as const }] }]
       : [],
-    hints: [],
-  }), [thinking]);
+    hints: canCycleProvider
+      ? [{ id: "provider", key: "t", label: ` ${t("provider")}`, onPress: cycleProvider }]
+      : [],
+  }), [canCycleProvider, cycleProvider, thinking]);
 
-  if (!ticker) return <Text fg={colors.textDim}>{t("Select a ticker to ask AI.")}</Text>;
+  if (!ticker) return <PaneStatusBody empty emptyTitle={t("Select a ticker to ask AI.")} />;
 
   if (availableProviders.length === 0) {
     return (
-      <Box flexDirection="column" paddingX={1} flexGrow={1}>
-        <Text fg={colors.textDim}>{t("No AI providers are ready.")}</Text>
-        <Box height={1} />
-        <Text fg={colors.text}>
-          {t("Open any AI pane's settings to connect an account.")}
-        </Text>
-      </Box>
+      <PaneStatusBody
+        empty
+        emptyTitle={t("No AI providers are ready.")}
+        emptyMessage={t("Open any AI pane's settings to connect an account.")}
+      />
     );
   }
 
@@ -393,9 +401,9 @@ export function AskAiResearchTab({ width, height, focused, onCapture }: TickerRe
           >
             {messages.length === 0 ? (
               <Box paddingTop={1}>
-                <Text fg={colors.textDim}>
-                  {t("Ask questions about {ticker}. Financial data will be included as context.").replace("{ticker}", ticker.metadata.ticker)}
-                </Text>
+                <EmptyState
+                  title={t("Ask questions about {ticker}. Financial data will be included as context.").replace("{ticker}", ticker.metadata.ticker)}
+                />
               </Box>
             ) : (
               messages.map((message, index) => (

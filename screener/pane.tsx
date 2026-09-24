@@ -1,4 +1,4 @@
-import { Box, Text } from "gloomberb/ui";
+import { Box } from "gloomberb/ui";
 import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import type { PaneProps } from "gloomberb/types/plugin";
 import {
@@ -7,6 +7,7 @@ import {
   usePaneInstance,
   usePaneInstanceId,
   usePaneStateValue,
+  usePluginAppActions,
 } from "gloomberb/react";
 import {
   useAssetData,
@@ -15,8 +16,7 @@ import {
   usePluginState,
 } from "gloomberb/react";
 import { useTickerSourceActivate } from "gloomberb/react";
-import { type DataTableKeyEvent } from "gloomberb/components";
-import { colors } from "gloomberb/theme";
+import { usePaneNoticeFooter, type DataTableKeyEvent } from "gloomberb/components";
 import { t } from "gloomberb/i18n";
 import { getAiProvider, resolveDefaultAiProviderId } from "../providers";
 import { useAiRuntimeProviders } from "../use-runtime-providers";
@@ -64,10 +64,11 @@ export function AiScreenerPane({ focused, width, height }: PaneProps) {
   const paneInstance = usePaneInstance();
   const liveStreaming = useLiveStreamingSetting();
   const dispatch = useAppDispatch();
+  const { openPaneSettings } = usePluginAppActions();
   const tickers = useAppSelector((state) => state.tickers);
   const providers = useAiRuntimeProviders();
   const selectableProviders = getSelectableAiRunners(providers, { outputMode: "screener" });
-  const readyProviders = selectableProviders.filter(isAiProviderReady);
+  const noProvidersReady = !selectableProviders.some(isAiProviderReady);
   const fallbackProviderId = resolveDefaultAiProviderId(selectableProviders);
   const [configuredDefaultProviderId] = usePluginConfigState<string>(
     AI_DEFAULT_PROVIDER_SETTING_KEY,
@@ -262,7 +263,8 @@ export function AiScreenerPane({ focused, width, height }: PaneProps) {
     tickers,
     upsertTab,
   });
-  const isRunningActiveTab = runState?.tabId === activeTab?.id;
+  // Both sides are undefined with no run and no tab, which is not a run.
+  const isRunningActiveTab = !!runState && !!activeTab && runState.tabId === activeTab.id;
 
   const addTab = useCallback(() => {
     openCreateEditor();
@@ -359,14 +361,32 @@ export function AiScreenerPane({ focused, width, height }: PaneProps) {
     activeTab,
     editorState,
     isRunningActiveTab,
+    promptDirty,
     runState,
     onAddTab: addTab,
     onCancelRun: cancelRun,
-    onCloseEditor: closeEditor,
     onEdit: editActiveTab,
-    onRefresh: refreshActiveTab,
+    onFocusModel: focusEditorModel,
     onSaveEditor: saveEditor,
   });
+
+  usePaneNoticeFooter({
+    registrationId: "ai-screener:notices",
+    notices: [
+      ...(activeTab?.lastWarning && !activeTab.lastError ? [activeTab.lastWarning] : []),
+      // With nothing to show, the empty state says this instead.
+      ...(noProvidersReady && activeTab && activeTab.results.length > 0
+        ? [t("No AI providers are ready. Connect an account in pane settings.")]
+        : []),
+    ],
+    focused,
+    title: "Screener warnings",
+    enabled: !editorState,
+  });
+
+  const openSettings = useCallback(() => {
+    if (paneId) openPaneSettings(paneId);
+  }, [openPaneSettings, paneId]);
 
   const { registration: tabsRegistration, tabsInHeader } = useAiScreenerTabs({
     activeTab,
@@ -382,15 +402,9 @@ export function AiScreenerPane({ focused, width, height }: PaneProps) {
 
   return (
     <Box flexDirection="column" width={width} height={height}>
-      {!tabsInHeader && (
+      {tabsRegistration && !tabsInHeader && (
         <Box height={1}>
           <AiScreenerTabsBar registration={tabsRegistration} />
-        </Box>
-      )}
-
-      {readyProviders.length === 0 && (
-        <Box flexDirection="column" paddingX={1} paddingTop={1}>
-          <Text fg={colors.textDim}>{t("No AI providers are ready. Connect an account in pane settings.")}</Text>
         </Box>
       )}
 
@@ -411,6 +425,8 @@ export function AiScreenerPane({ focused, width, height }: PaneProps) {
               : current);
           }}
           onPromptFocusRequest={focusEditorPrompt}
+          onSave={saveEditor}
+          onCancel={closeEditor}
         />
       ) : (
         <AiScreenerResultsView
@@ -422,12 +438,15 @@ export function AiScreenerPane({ focused, width, height }: PaneProps) {
           financialsMap={financialsMap}
           focused={focused}
           isRunningActiveTab={isRunningActiveTab}
-          promptDirty={promptDirty}
+          noProvidersReady={noProvidersReady}
           resultMap={resultMap}
           setCursorSymbol={setCursorSymbol}
           sortedTickers={sortedTickers}
           width={width}
+          onCreate={addTab}
           onHeaderClick={handleHeaderClick}
+          onOpenSettings={openSettings}
+          onRun={refreshActiveTab}
           onRootKeyDown={handleTableKeyDown}
           onRowActivate={(ticker) => {
             setCursorSymbol(ticker.metadata.ticker);

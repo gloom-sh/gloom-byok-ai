@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { act, useState } from "react";
-import { PaneFooterProvider } from "gloomberb/test-support";
+import { PaneFooterBar, PaneFooterProvider } from "gloomberb/test-support";
 import { testRender } from "gloomberb/test-support";
 import { createInitialState } from "gloomberb/test-support";
 import { createStatefulTestPluginRuntime } from "gloomberb/test-support";
@@ -70,14 +70,17 @@ function AgentPaneHarness({
     <Box flexDirection="column" width={width} height={height}>
       <TestPaneProvider state={state} paneId={PANE_ID} pluginId="ai" runtime={runtime}>
         <PaneFooterProvider>
-          {() => (
-            <LocalAgentWorkspacePane
-              paneId={PANE_ID}
-              paneType="local-agent-workspace"
-              focused
-              width={width}
-              height={height}
-            />
+          {(footer) => (
+            <>
+              <LocalAgentWorkspacePane
+                paneId={PANE_ID}
+                paneType="local-agent-workspace"
+                focused
+                width={width}
+                height={height - 1}
+              />
+              <PaneFooterBar footer={footer} focused width={width} />
+            </>
           )}
         </PaneFooterProvider>
       </TestPaneProvider>
@@ -228,14 +231,15 @@ test("a long research attachment keeps its controls and composer outside the pre
     await act(async () => { await testSetup!.mockMouse.click(lines[row]!.indexOf(text) + 1, row); await testSetup!.renderOnce(); });
     await testSetup!.renderOnce();
   };
-  await clickText("Attach CONTROL");
+  // Attach is the footer's [a] action, not a button row above the composer.
+  await clickText("[a]ttach CONTROL");
   const attached = testSetup.captureCharFrame();
   expect(attached).toContain("Attached: Ticker CONTROL");
   expect(attached).toContain("Company: Controlled issuer");
   expect(attached).toContain("Message Claude");
   await clickText("Remove");
   expect(testSetup.captureCharFrame()).not.toContain("Attached: Ticker CONTROL");
-  await clickText("Attach CONTROL");
+  await clickText("[a]ttach CONTROL");
   await act(async () => { testSetup!.mockInput.pressEnter(); await testSetup!.renderOnce(); });
   await act(async () => { await testSetup!.mockInput.typeText("Compare earnings"); testSetup!.mockInput.pressEnter(); await testSetup!.renderOnce(); });
   expect(request?.prompt).toContain("EPS: 42.5 JPY");

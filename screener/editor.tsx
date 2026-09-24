@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 import { useEffect } from "react";
-import { Box, Text, Textarea, type InputRenderable, type TextareaRenderable } from "gloomberb/ui";
+import { Box, Text, Textarea, useUiCapabilities, type InputRenderable, type TextareaRenderable } from "gloomberb/ui";
+import { Button, Notice } from "gloomberb/components";
 import { colors } from "gloomberb/theme";
 import { t } from "gloomberb/i18n";
 import {
@@ -67,6 +68,8 @@ export function AiScreenerEditorView({
   onProviderChange,
   onModelChange,
   onPromptFocusRequest,
+  onSave,
+  onCancel,
 }: {
   editorProvider: AiProvider | null;
   editorFocusTarget: "prompt" | "model";
@@ -79,34 +82,29 @@ export function AiScreenerEditorView({
   onProviderChange: (providerId: string) => void;
   onModelChange: (modelId: string) => void;
   onPromptFocusRequest: () => void;
+  onSave: () => void;
+  onCancel: () => void;
 }) {
+  const { nativePaneChrome } = useUiCapabilities();
   return (
     <>
-      <Box flexDirection="column" paddingX={1} paddingTop={1} gap={1}>
-        <Text fg={colors.textDim}>
-          {editorState.mode === "create"
-            ? t("Describe the companies or setups you want this screener to discover.")
-            : t("Update the screener prompt or provider. Saving does not rerun it automatically.")}
-        </Text>
+      <Box flexDirection="column" paddingX={1} paddingTop={1}>
         <AiRunnerSelector
           providers={selectableProviders}
           providerId={editorState.providerId}
           modelId={editorState.modelId}
+          description={editorProvider && !isAiProviderReady(editorProvider) ? (
+            <Text fg={colors.warning}>
+              {`${getAiProviderUnavailableReason(editorProvider)} Save and switch later.`}
+            </Text>
+          ) : null}
           modelInputRef={modelInputRef}
           modelFocused={focused && editorFocusTarget === "model"}
           onProviderChange={onProviderChange}
           onModelChange={onModelChange}
           onModelFocusRequest={onModelFocusRequest}
           onModelBlur={onPromptFocusRequest}
-          modelHint="Ctrl+O opens the Pi model catalog."
         />
-        {editorState.error ? (
-          <Text fg={colors.negative}>{editorState.error}</Text>
-        ) : (
-          <Text fg={colors.textDim}>
-            The AI will return validated ticker ideas with a short reason for each one.
-          </Text>
-        )}
       </Box>
 
       <Box flexGrow={1} minHeight={4} padding={1}>
@@ -119,12 +117,14 @@ export function AiScreenerEditorView({
         />
       </Box>
 
-      <Box flexDirection="column" paddingX={1}>
-        <Text fg={colors.textDim}>
-          {editorProvider && !isAiProviderReady(editorProvider)
-            ? `${getAiProviderUnavailableReason(editorProvider)} Save and switch later.`
-            : "Click a provider to switch. Save to keep the draft."}
-        </Text>
+      {/* Ctrl+S saves and Esc cancels, like the buttons. On the desktop the
+          pane's bottom edge clips buttons that sit flush against it. */}
+      <Box flexDirection="column" paddingX={1} paddingBottom={nativePaneChrome ? 1 : 0} flexShrink={0}>
+        {editorState.error && <Notice tone="negative">{editorState.error}</Notice>}
+        <Box flexDirection="row" gap={1}>
+          <Button label={t("Save")} variant="primary" onPress={onSave} />
+          <Button label={t("Cancel")} variant="secondary" onPress={onCancel} />
+        </Box>
       </Box>
     </>
   );

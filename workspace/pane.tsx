@@ -5,10 +5,14 @@ import { MarkdownText } from "gloomberb/components";
 import {
   getPaneSidebarWidth,
   Button,
+  EmptyState,
   MessageComposer,
+  Notice,
   PaneSidebar,
   PaneSidebarAction,
   PaneSidebarRow,
+  PaneStatusBody,
+  QueryBar,
   SectionHeading,
   shouldShowPaneSidebar,
   Spinner,
@@ -86,36 +90,39 @@ function WorkspaceProviderChooser({
   providers,
   selectedIndex,
   checkingProviderId,
-  statusMessage,
   modelId,
   modelInputRef,
   modelFocused,
+  canCancel,
   onSelectIndex,
   onModelChange,
   onModelFocusRequest,
   onModelBlur,
   onConfigure,
+  onCreate,
+  onCancel,
 }: {
   providers: AiProvider[];
   selectedIndex: number;
   checkingProviderId: string | null;
-  statusMessage: string | null;
   modelId: string;
   modelInputRef: RefObject<InputRenderable | null>;
   modelFocused: boolean;
+  canCancel: boolean;
   onSelectIndex: (index: number) => void;
   onModelChange: (modelId: string) => void;
   onModelFocusRequest: () => void;
   onModelBlur: () => void;
   onConfigure: () => void;
+  onCreate: () => void;
+  onCancel: () => void;
 }) {
   const selectedProvider = providers[selectedIndex] ?? providers[0] ?? null;
+  // Enter creates and Esc returns to the threads, like the buttons below; the
+  // footer carries the result of the account check.
   return (
-    <Box flexDirection="column" paddingX={1} paddingTop={1} flexGrow={1}>
+    <Box flexDirection="column" paddingX={1} paddingTop={1} gap={1} flexGrow={1}>
       <SectionHeading title="Choose an AI provider" />
-      <Text fg={colors.textDim}>Provider and model are fixed for this thread. Create another thread to switch.</Text>
-      <Box height={1} />
-      {statusMessage && <Text fg={colors.warning}>{statusMessage}</Text>}
       <AiRunnerSelector
         providers={providers}
         providerId={selectedProvider?.id ?? ""}
@@ -136,20 +143,20 @@ function WorkspaceProviderChooser({
         modelFocused={modelFocused}
         onModelFocusRequest={onModelFocusRequest}
         onModelBlur={onModelBlur}
-        modelHint="Press m to choose from the Pi model catalog."
       />
-      {selectedProvider && !isAiProviderReady(selectedProvider) && (
-        <Box paddingTop={1}>
-          <Button stopPropagation
-            label={`Configure ${selectedProvider.name}`}
-            variant="primary"
-            shortcut="s"
-            onPress={onConfigure}
-          />
-        </Box>
-      )}
-      <Box height={1} />
-      <Text fg={colors.textMuted}>↑/↓ provider · m model · Enter create · s settings · Esc return to threads</Text>
+      <Box flexDirection="row" gap={1}>
+        <Button
+          stopPropagation
+          label="Create thread"
+          variant="primary"
+          disabled={!selectedProvider || checkingProviderId !== null}
+          onPress={onCreate}
+        />
+        {selectedProvider && !isAiProviderReady(selectedProvider) && (
+          <Button stopPropagation label={`Configure ${selectedProvider.name}`} variant="secondary" onPress={onConfigure} />
+        )}
+        {canCancel && <Button stopPropagation label="Cancel" variant="secondary" onPress={onCancel} />}
+      </Box>
     </Box>
   );
 }
@@ -575,6 +582,15 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
     if (trimmed) void sendMessage(trimmed);
   }, [inputValue, sendMessage]);
 
+  const createSelectedThread = useCallback(() => {
+    const selectedProvider = workspaceProviders[selectedProviderIndex];
+    if (selectedProvider) void createThread(selectedProvider, modelId, pendingNewThreadId ?? undefined);
+  }, [createThread, modelId, pendingNewThreadId, selectedProviderIndex, workspaceProviders]);
+
+  const cancelCreateThread = useCallback(() => {
+    if (workspace.threads.length > 0) setCreating(false);
+  }, [workspace.threads.length]);
+
   useShortcut((event) => {
     if (!focused) return;
     const isEnter = event.name === "enter" || event.name === "return";
@@ -591,7 +607,7 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
         }
         return;
       }
-      if (event.name === "escape" && workspace.threads.length > 0) setCreating(false);
+      if (event.name === "escape") cancelCreateThread();
       if (event.name === "m") {
         event.stopPropagation?.();
         event.preventDefault?.();
@@ -613,10 +629,7 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
       if (event.name === "down") {
         selectProviderForCreation((selectedProviderIndex + 1) % workspaceProviders.length);
       }
-      const selectedProvider = workspaceProviders[selectedProviderIndex];
-      if (isEnter && selectedProvider) {
-        void createThread(selectedProvider, modelId, pendingNewThreadId ?? undefined);
-      }
+      if (isEnter) createSelectedThread();
       return;
     }
     if (isEnter && activeThreadProviderSupported) focusInput();
@@ -640,6 +653,7 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
     };
   }, [dispatch]);
 
+  const threadOpen = !creating && !!activeThread;
   usePaneFooter("local-agent-workspace", () => ({
     info: runningMessageId
       ? [{ id: "running", parts: [{ text: "Streaming reply", tone: "positive" as const, bold: true }] }]
@@ -648,28 +662,52 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
         : statusMessage
           ? [{ id: "error", parts: [{ text: statusMessage, tone: "warning" as const }] }]
           : [],
-    hints: creating
-      ? [{
-          id: "settings",
-          key: "s",
-          label: "ettings",
-          onPress: openConfiguration,
-        }]
-      : [],
-  }), [checkingProviderId, creating, openConfiguration, runningMessageId, statusMessage]);
+    hints: !threadOpen
+      ? [
+          ...(workspaceProviders.length > 0
+            ? [{ id: "model", key: "m", label: "odel", onPress: focusModelInput }]
+            : []),
+          { id: "settings", key: "s", label: "ettings", onPress: openConfiguration },
+        ]
+      : [
+          { id: "new", key: "n", label: "ew thread", onPress: beginCreateThread, disabled: !!runningMessageId },
+          ...(activeThreadProviderSupported
+            ? [{ id: "attach", key: "a", label: `ttach ${previousSymbol || "selected ticker"}`, onPress: attachSelectedTicker }]
+            : []),
+          ...(activeThreadProviderSupported && attachments.length > 0
+            ? [{ id: "remove", key: "x", label: " remove context", onPress: removeAttachments }]
+            : []),
+          ...(runningMessageId
+            ? [{ id: "cancel", key: "c", label: "ancel", onPress: cancelRun }]
+            : []),
+        ],
+  }), [
+    activeThreadProviderSupported,
+    attachSelectedTicker,
+    attachments.length,
+    beginCreateThread,
+    cancelRun,
+    checkingProviderId,
+    focusModelInput,
+    openConfiguration,
+    previousSymbol,
+    removeAttachments,
+    runningMessageId,
+    statusMessage,
+    threadOpen,
+    workspaceProviders.length,
+  ]);
 
   const messageText = activeThread?.messages.map((message) => message.content) ?? [];
   const { catalog, openTicker } = useInlineTickers(messageText);
 
   if (workspaceProviders.length === 0 && !activeThread) {
     return (
-      <Box flexDirection="column" paddingX={1} paddingTop={1}>
-        <Text fg={colors.warning}>No supported AI providers are available.</Text>
-        <Text fg={colors.textDim}>Open pane settings to review AI provider configuration.</Text>
-        <Box paddingTop={1}>
-          <Button stopPropagation label="Open AI settings" variant="primary" shortcut="s" onPress={openConfiguration} />
-        </Box>
-      </Box>
+      <PaneStatusBody
+        empty
+        emptyTitle="No supported AI providers are available."
+        actions={<Button stopPropagation label="Open AI settings" variant="primary" compact onPress={openConfiguration} />}
+      />
     );
   }
 
@@ -679,15 +717,17 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
         providers={workspaceProviders}
         selectedIndex={selectedProviderIndex}
         checkingProviderId={checkingProviderId}
-        statusMessage={statusMessage}
         modelId={modelId}
         modelInputRef={modelInputRef}
         modelFocused={modelInputFocused && focused}
+        canCancel={workspace.threads.length > 0}
         onSelectIndex={selectProviderForCreation}
         onModelChange={setModelId}
         onModelFocusRequest={focusModelInput}
         onModelBlur={blurModelInput}
         onConfigure={openConfiguration}
+        onCreate={createSelectedThread}
+        onCancel={cancelCreateThread}
       />
     );
   }
@@ -695,17 +735,28 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
   const showSidebar = shouldShowPaneSidebar(workspace.threads.length, width, height, 1);
   const sidebarWidth = showSidebar ? getPaneSidebarWidth(width, !!nativePaneChrome) : 0;
   const contentWidth = Math.max(20, width - sidebarWidth - (nativePaneChrome ? 0 : 2));
-  // Separators, prev/next arrows, and "+ New" take about 30 cells on top of the
-  // provider/model label.
-  const narrowHeaderTitleWidth = Math.max(
-    6,
-    contentWidth - 30 - formatAiRunnerSelection(
-      providerLabel(activeThreadProviderSupported ? activeSelection.providerId : activeThread.providerId),
-      activeThreadProviderSupported ? activeSelection.modelId : activeThread.modelId,
-    ).length,
-  );
   const composerHeight = nativePaneChrome ? 3 : 2;
   const attachmentPreviewHeight = Math.min(8, Math.max(1, height - 10));
+  const activeProviderId = activeThreadProviderSupported ? activeSelection.providerId : activeThread.providerId;
+  // The open thread shows the provider and model it will use next, which pane
+  // settings can override; the others show what they were created with.
+  const threadRunnerLabel = (thread: typeof activeThread) => (
+    thread.id === activeThread.id
+      ? formatAiRunnerSelection(
+        providerLabel(activeProviderId),
+        activeThreadProviderSupported ? activeSelection.modelId : activeThread.modelId,
+      )
+      : formatAiRunnerSelection(providerLabel(thread.providerId), thread.modelId)
+  );
+  const selectThread = (threadId: string) => {
+    if (busyRef.current) return;
+    setPaneThreadId(threadId);
+    clearDraft();
+    setStatusMessage(null);
+  };
+  const activeRunnerLabel = threadRunnerLabel(activeThread);
+  // Without the sidebar, the thread switch and the runner share one query bar row.
+  const threadTitleWidth = Math.max(8, width - activeRunnerLabel.length - 14);
 
   return (
     <Box flexDirection="row" width={nativePaneChrome ? "100%" : width} height={nativePaneChrome ? "100%" : height} overflow="hidden">
@@ -740,11 +791,7 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
                       disabled={busyRef.current}
                       height={2}
                       ariaLabel={`Open AI thread ${thread.title}`}
-                      onSelect={() => {
-                        setPaneThreadId(thread.id);
-                        clearDraft();
-                        setStatusMessage(null);
-                      }}
+                      onSelect={() => selectThread(thread.id)}
                     >
                       {({ foregroundColor, onMouseDown }) => (
                         <Box flexDirection="column" width={listWidth} paddingX={1} onMouseDown={onMouseDown}>
@@ -753,7 +800,7 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
                           </Text>
                           <Text fg={selected ? foregroundColor : colors.textMuted} onMouseDown={onMouseDown}>
                             {truncateWithEllipsis(
-                              `${formatAiRunnerSelection(providerLabel(thread.providerId), thread.modelId)}${supported ? "" : " · unsupported"}`,
+                              `${threadRunnerLabel(thread)}${supported ? "" : " · unsupported"}`,
                               Math.max(listWidth - 2, 1),
                             )}
                           </Text>
@@ -769,40 +816,32 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
       )}
 
       <Box flexDirection="column" flexGrow={1} minWidth={0} overflow="hidden">
-        <Box height={1} paddingX={1} flexDirection="row" overflow="hidden">
-          <Text fg={colors.positive} attributes={TextAttributes.BOLD}>
-            {formatAiRunnerSelection(
-              providerLabel(activeThreadProviderSupported ? activeSelection.providerId : activeThread.providerId),
-              activeThreadProviderSupported ? activeSelection.modelId : activeThread.modelId,
-            )}
-          </Text>
-          <Text fg={colors.textDim}> · persistent thread</Text>
-          {!showSidebar && (
-            <>
-              <Text fg={colors.textDim}> · </Text>
-              <Button stopPropagation label="Previous thread" displayLabel="‹" variant="ghost" compact onPress={() => cycleThread(-1)} />
-              {/* Truncated so a long title cannot push the prev, next, and New
-                  controls off the single header row. */}
-              <Text fg={colors.text}>{truncateWithEllipsis(activeThread.title, narrowHeaderTitleWidth)}</Text>
-              <Button stopPropagation label="Next thread" displayLabel="›" variant="ghost" compact onPress={() => cycleThread(1)} />
-              <Button stopPropagation label="New thread" displayLabel="+ New" variant="ghost" compact disabled={!!runningMessageId} onPress={beginCreateThread} />
-            </>
-          )}
-        </Box>
-
-        {!activeThreadProviderSupported && (
-          <Box paddingX={1}>
-            <Text fg={colors.warning}>
-              This legacy thread is read-only because {providerLabel(activeThread.providerId)} is no longer supported. Create a new thread to continue.
-            </Text>
-          </Box>
+        {!showSidebar && (
+          <QueryBar
+            width={width}
+            filters={[{
+              id: "thread",
+              label: "Thread",
+              value: activeThread.id,
+              options: workspace.threads.map((thread) => ({
+                value: thread.id,
+                label: thread.title,
+                short: truncateWithEllipsis(thread.title, threadTitleWidth),
+                description: threadRunnerLabel(thread),
+              })),
+              onChange: selectThread,
+            }]}
+            meta={activeRunnerLabel}
+          />
         )}
 
         <ScrollBox ref={scrollRef} flexGrow={1} minHeight={0} scrollY focusable={false} paddingX={1}>
           {activeThread.messages.length === 0 ? (
-            <Box flexDirection="column" paddingTop={1}>
-              <Text fg={colors.textDim}>Start a research conversation. No financial context is attached automatically.</Text>
-              <Text fg={colors.textMuted}>Press a to attach the selected ticker, then review the preview before sending.</Text>
+            <Box paddingTop={1}>
+              <EmptyState
+                title="Start a research conversation."
+                hint="No financial context is attached automatically."
+              />
             </Box>
           ) : activeThread.messages.map((message) => (
             <Box key={message.id} flexDirection="column" paddingTop={1}>
@@ -812,7 +851,7 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
               >
                 {message.role === "user"
                   ? "You"
-                  : providerLabel(activeThreadProviderSupported ? activeSelection.providerId : activeThread.providerId)}
+                  : providerLabel(activeProviderId)}
                 {message.id === runningMessageId ? " · streaming" : message.status === "cancelled" ? " · cancelled" : ""}
               </Text>
               {message.attachments?.map((attachment) => (
@@ -834,7 +873,7 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
           {runningMessageId && (
             <Box flexDirection="column" paddingTop={1}>
               <Text fg={colors.positive} attributes={TextAttributes.BOLD}>
-                {providerLabel(activeThreadProviderSupported ? activeSelection.providerId : activeThread.providerId)} · streaming
+                {providerLabel(activeProviderId)} · streaming
               </Text>
               {streamingOutput ? (
                 <MarkdownText
@@ -851,31 +890,24 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
           )}
         </ScrollBox>
 
-        {statusMessage && (
-          <Box paddingX={1}><Text fg={colors.warning}>{statusMessage}</Text></Box>
-        )}
         {activeThreadProviderSupported ? (
           <>
-            <Box flexDirection="column" paddingX={1} flexShrink={0}>
-              {attachments.map((attachment) => (
-                <Box key={attachment.id} flexDirection="column" height={attachmentPreviewHeight + 1} flexShrink={0} backgroundColor={colors.panel} paddingX={1}>
-                  <Box flexDirection="row" height={1} flexShrink={0} overflow="hidden">
-                    <Text fg={colors.warning} attributes={TextAttributes.BOLD}>Attached: {attachment.label}</Text>
-                    <Box flexGrow={1} />
-                    <Button stopPropagation label="Remove attachments" displayLabel="Remove" variant="ghost" compact onPress={removeAttachments} />
+            {attachments.length > 0 && (
+              <Box flexDirection="column" paddingX={1} flexShrink={0}>
+                {attachments.map((attachment) => (
+                  <Box key={attachment.id} flexDirection="column" height={attachmentPreviewHeight + 1} flexShrink={0} backgroundColor={colors.panel} paddingX={1}>
+                    <Box flexDirection="row" height={1} flexShrink={0} overflow="hidden">
+                      <Text fg={colors.warning} attributes={TextAttributes.BOLD}>Attached: {attachment.label}</Text>
+                      <Box flexGrow={1} />
+                      <Button stopPropagation label="Remove attachments" displayLabel="Remove" variant="ghost" compact onPress={removeAttachments} />
+                    </Box>
+                    <ScrollBox height={attachmentPreviewHeight} flexShrink={0} scrollY focusable={false}>
+                      <Text fg={colors.textDim}>{attachment.content}</Text>
+                    </ScrollBox>
                   </Box>
-                  <ScrollBox height={attachmentPreviewHeight} flexShrink={0} scrollY focusable={false}>
-                    <Text fg={colors.textDim}>{attachment.content}</Text>
-                  </ScrollBox>
-                </Box>
-              ))}
-              <Box height={1} flexDirection="row">
-                <Button stopPropagation label={attachments.length > 0 ? "Replace context" : `Attach ${previousSymbol || "selected ticker"}`} variant="ghost" compact onPress={attachSelectedTicker} />
-                {runningMessageId && (
-                  <Button stopPropagation label="Cancel" variant="danger" compact onPress={cancelRun} />
-                )}
+                ))}
               </Box>
-            </Box>
+            )}
             <MessageComposer
               inputRef={inputRef}
               initialValue={inputValue}
@@ -896,8 +928,10 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
             />
           </>
         ) : (
-          <Box height={composerHeight} paddingX={1}>
-            <Text fg={colors.textMuted}>Read-only legacy history</Text>
+          <Box minHeight={composerHeight} paddingX={1} flexShrink={0}>
+            <Notice>
+              This legacy thread is read-only because {providerLabel(activeThread.providerId)} is no longer supported. Create a new thread to continue.
+            </Notice>
           </Box>
         )}
       </Box>

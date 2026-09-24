@@ -7,12 +7,12 @@ interface UseAiScreenerFooterOptions {
   activeTab: AiScreenerTab | null;
   editorState: ScreenerEditorState | null;
   isRunningActiveTab: boolean;
+  promptDirty: boolean;
   runState: RunState | null;
   onAddTab: () => void;
   onCancelRun: () => void;
-  onCloseEditor: () => void;
   onEdit: () => void;
-  onRefresh: () => void;
+  onFocusModel: () => void;
   onSaveEditor: () => void;
 }
 
@@ -20,12 +20,12 @@ export function useAiScreenerFooter({
   activeTab,
   editorState,
   isRunningActiveTab,
+  promptDirty,
   runState,
   onAddTab,
   onCancelRun,
-  onCloseEditor,
   onEdit,
-  onRefresh,
+  onFocusModel,
   onSaveEditor,
 }: UseAiScreenerFooterOptions) {
   const language = useAppLanguage();
@@ -38,17 +38,22 @@ export function useAiScreenerFooter({
             tone: "muted" as const,
           }],
         }]
-      : activeTab?.lastError
-        ? [{
-            id: "error",
-            parts: [{ text: activeTab.lastError, tone: "warning" as const }],
-          }]
-        : activeTab?.lastWarning
-          ? [{
-              id: "warning",
-              parts: [{ text: activeTab.lastWarning, tone: "warning" as const }],
-            }]
-          : [],
+      : [
+          ...(activeTab?.lastError
+            ? [{
+                id: "error",
+                parts: [{ text: activeTab.lastError, tone: "warning" as const }],
+              }]
+            : []),
+          // Lookup warnings are the notice footer's.
+          ...(activeTab && promptDirty && activeTab.results.length > 0
+            ? [{
+                id: "stale",
+                parts: [{ text: t("Prompt or provider changed since this run"), tone: "warning" as const }],
+              }]
+            : []),
+        ],
+    // The editor draws Save and Cancel; Esc cancels.
     hints: editorState
       ? [
           {
@@ -58,10 +63,10 @@ export function useAiScreenerFooter({
             onPress: onSaveEditor,
           },
           {
-            id: "cancel-edit",
-            key: "Esc",
-            label: t("cancel"),
-            onPress: onCloseEditor,
+            id: "model",
+            key: "Ctrl+O",
+            label: t("model"),
+            onPress: onFocusModel,
           },
         ]
       : isRunningActiveTab
@@ -95,10 +100,10 @@ export function useAiScreenerFooter({
     language,
     onAddTab,
     onCancelRun,
-    onCloseEditor,
     onEdit,
-    onRefresh,
+    onFocusModel,
     onSaveEditor,
+    promptDirty,
     runState,
   ]);
 }

@@ -18,7 +18,6 @@ export function AiRunnerSelector({
   providerId,
   modelId,
   description,
-  modelHint = "Choose from the Pi model catalog.",
   onProviderChange,
   onModelChange,
   modelFocused,
@@ -29,7 +28,6 @@ export function AiRunnerSelector({
   providerId: string;
   modelId: string;
   description?: ReactNode;
-  modelHint?: string;
   onProviderChange: (providerId: string) => void;
   onModelChange: (modelId: string) => void;
   modelInputRef?: RefObject<InputRenderable | null>;
@@ -122,31 +120,35 @@ export function AiRunnerSelector({
     <Box flexDirection="column" gap={1}>
       <Box flexDirection="column">
         <Text fg={colors.textDim}>Provider</Text>
-        <Button
-          label={selectedProvider
-            ? isAiProviderReady(selectedProvider)
-              ? selectedProvider.name
-              : `${selectedProvider.name} · ${getAiProviderUnavailableLabel(selectedProvider)}`
-            : "Choose provider"}
-          variant="secondary"
-          onPress={() => {
-            void openProviderPicker();
-          }}
-        />
+        {/* A row, so the picker is as wide as its value rather than the pane. */}
+        <Box flexDirection="row">
+          <Button
+            label={selectedProvider
+              ? isAiProviderReady(selectedProvider)
+                ? selectedProvider.name
+                : `${selectedProvider.name} · ${getAiProviderUnavailableLabel(selectedProvider)}`
+              : "Choose provider"}
+            variant="secondary"
+            onPress={() => {
+              void openProviderPicker();
+            }}
+          />
+        </Box>
       </Box>
       {description}
       <Box flexDirection="column">
         <Text fg={colors.textDim}>Model</Text>
-        <Button
-          label={selectedModel?.label ?? "Auto · provider default"}
-          variant="secondary"
-          active={!!modelFocused}
-          onPress={() => {
-            onModelFocusRequest?.();
-            void openModelPicker();
-          }}
-        />
-        <Text fg={colors.textMuted}>{modelHint}</Text>
+        <Box flexDirection="row">
+          <Button
+            label={selectedModel?.label ?? "Auto · provider default"}
+            variant="secondary"
+            active={!!modelFocused}
+            onPress={() => {
+              onModelFocusRequest?.();
+              void openModelPicker();
+            }}
+          />
+        </Box>
       </Box>
     </Box>
   );
