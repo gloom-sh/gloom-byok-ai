@@ -217,7 +217,7 @@ test("a long research attachment keeps its controls and composer outside the pre
       state.recentTickers = ["CONTROL"];
       state.tickers.set("CONTROL", createTestTicker("CONTROL", "Controlled issuer"));
       state.financials.set("CONTROL", {
-        fundamentals: { financialCurrency: "JPY", eps: 42.5, netIncome: 0, source: "gloom", stale: true },
+        fundamentals: { financialCurrency: "JPY", eps: 42.5, netIncome: 0, stale: true },
         annualStatements: [{ date: "2025-12-31", currency: "JPY", totalRevenue: 100, netIncome: 0, totalDebt: 0 }],
         quarterlyStatements: [], priceHistory: [],
       });

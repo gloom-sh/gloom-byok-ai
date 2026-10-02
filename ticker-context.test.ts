@@ -11,7 +11,7 @@ const financials = (patch: Partial<TickerFinancials>): TickerFinancials => ({
 describe("ticker research context source boundaries", () => {
   test("keeps summary, statement, and listing units independent, including minor units and unknown currency", () => {
     const source = financials({
-      fundamentals: { financialCurrency: "GBp", eps: 20, revenue: 100, source: "gloom" },
+      fundamentals: { financialCurrency: "GBp", eps: 20, revenue: 100 },
       financialCurrency: "JPY",
       annualStatements: [{ date: "2025-12-31", currency: "GBP", totalRevenue: 300 }],
     });
@@ -47,7 +47,7 @@ describe("ticker research context source boundaries", () => {
 
   test("selects the latest valid period and distinguishes period identity, field availability and retrieval failure", () => {
     const context = buildTickerAiContext(ticker, financials({
-      fundamentals: { source: "gloom", fetchedAt: "2026-09-09T12:00:00Z", stale: true },
+      fundamentals: { fetchedAt: "2026-09-09T12:00:00Z", stale: true },
       annualStatements: [
         { date: "2025-12-31", currency: "JPY", totalRevenue: 200, availableAt: "2026-02-10", dateSource: "sec", dateEvidence: { accessionNumber: "controlled", filed: "2026-02-09", startDate: "2025-01-01" }, fieldAvailability: { totalRevenue: "2026-02-11" } },
         { date: "2024-12-31", totalRevenue: 100 },
@@ -103,7 +103,7 @@ describe("ticker research context source boundaries", () => {
   test("retains native capitalization and quote basis without treating metadata as a current observation", () => {
     const source = financials({
       quote: { symbol: "CONTROL", currency: "USD", instrumentType: "BOND", priceBasis: "percent-of-par", stale: true, price: 98, change: -0.5, changePercent: -0.5076, lastUpdated: Date.now() - 30 * 86400000, providerId: "controlled" },
-      fundamentals: { marketCap: 10_000_000, marketCapCurrency: "JPY", source: "gloom", fetchedAt: "2026-09-09T12:00:00Z", stale: true },
+      fundamentals: { marketCap: 10_000_000, marketCapCurrency: "JPY", fetchedAt: "2026-09-09T12:00:00Z", stale: true },
     });
     let context = buildTickerAiContext(ticker, source, "EUR");
     expect(context).toContain("Quoted Price: 98% of par (nominal currency USD)");
