@@ -706,7 +706,7 @@ export function LocalAgentWorkspacePane({ paneId, focused, width, height }: Pane
       <PaneStatusBody
         empty
         emptyTitle="No supported AI providers are available."
-        emptyMessage="AI Agent runs on your own Anthropic, OpenAI, Google, GitHub Copilot, xAI or OpenRouter account; a Gloom sign-in does not unlock it. Meanwhile, gloomberb fn DVD KO PEP ranks dividend payers and gloomberb catalog <topic> finds any function."
+        emptyMessage="Connect your own AI account (Anthropic, OpenAI, Google and more) in settings, or use Ask Gloom (ASKG), free with a verified Gloom account."
         actions={<Button stopPropagation label="Open AI settings" variant="primary" compact onPress={openConfiguration} />}
       />
     );

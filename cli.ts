@@ -61,12 +61,14 @@ function configuredAiSelection(config: Record<string, unknown> | undefined): {
 }
 
 /**
- * What unlocks `ai ask` when nothing is connected, and what answers without it.
- * Only the reader's own provider account runs it; a Gloom sign-in does not.
+ * What unlocks `ai ask` when nothing is connected, what AI a Gloom account
+ * unlocks instead, and the command that answers without AI. Only the
+ * reader's own provider account runs `ai ask`; a Gloom sign-in does not.
  */
 const NO_PROVIDER_HINT = [
-  "ai ask runs on your own Anthropic, OpenAI, Google, GitHub Copilot, xAI or OpenRouter account: connect one in any AI pane's settings in the app (gloomberb ai providers lists them). A Gloom sign-in does not unlock it; Ask Gloom (ASKG in the app) is the AI a free, verified Gloom account unlocks.",
-  "Without either: gloomberb fn DVD KO PEP ranks dividend payers, and gloomberb catalog <topic> finds the function for a topic.",
+  "ai ask runs on your own AI account (Anthropic, OpenAI, Google, GitHub Copilot, xAI or OpenRouter): connect one in the app's AI settings; `gloomberb ai providers` lists them.",
+  "Ask Gloom (ASKG in the app) needs only a free, verified Gloom account.",
+  "Without AI: `gloomberb catalog <topic>` finds the function for a question, e.g. `gloomberb catalog dividends`.",
 ].join("\n");
 
 function connectionFailure(provider: PiCatalog["providers"][number]): string {
