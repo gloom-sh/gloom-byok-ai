@@ -115,6 +115,8 @@ describe("AskAiTab", () => {
     const frame = testSetup!.captureCharFrame();
     expect(frame).toContain("No AI providers are ready.");
     expect(frame).toContain("Open any AI pane's settings");
+    // The wall names what unlocks it and what answers without it.
+    expect(frame).toContain("gloomberb fn DVD");
   });
 
   test("focuses the input when the prompt row is clicked", async () => {
