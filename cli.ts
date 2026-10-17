@@ -60,6 +60,17 @@ function configuredAiSelection(config: Record<string, unknown> | undefined): {
   };
 }
 
+/**
+ * What unlocks `ai ask` when nothing is connected, what AI a Gloom account
+ * unlocks instead, and the command that answers without AI. Only the
+ * reader's own provider account runs `ai ask`; a Gloom sign-in does not.
+ */
+const NO_PROVIDER_HINT = [
+  "ai ask runs on your own AI account (Anthropic, OpenAI, Google, GitHub Copilot, xAI or OpenRouter): connect one in the app's AI settings; `gloomberb ai providers` lists them.",
+  "Ask Gloom (ASKG in the app) needs only a free, verified Gloom account.",
+  "Without AI: `gloomberb catalog <topic>` finds the function for a question, e.g. `gloomberb catalog dividends`.",
+].join("\n");
+
 function connectionFailure(provider: PiCatalog["providers"][number]): string {
   if (provider.connection.state === "error") {
     return `${provider.label} could not connect: ${provider.connection.message}`;
@@ -138,7 +149,7 @@ export function createAiCliCommand(options: CreateAiCliCommandOptions = {}): Cli
           ?? configuredProvider
           ?? catalog.providers.find((provider) => provider.connection.state === "connected");
         if (!selected) {
-          ctx.fail("No AI provider is connected. Connect an account from AI pane settings first.");
+          ctx.fail("No AI provider is connected.", NO_PROVIDER_HINT);
           throw new Error("AI provider selection failed.");
         }
         if (selected.connection.state !== "connected") {

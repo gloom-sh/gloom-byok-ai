@@ -61,7 +61,7 @@ export function AiScreenerResultsView({
   // Run errors, lookup warnings and a stale prompt are the footer's; the body
   // keeps the results and says what to do when there are none.
   const providerMessage = noProvidersReady
-    ? t("No AI providers are ready. Connect an account in pane settings.")
+    ? t("Connect your own AI account (Anthropic, OpenAI, Google and more) in settings, or use Ask Gloom (ASKG), free with a verified Gloom account.")
     : undefined;
   const settingsAction = (variant: "primary" | "secondary") => (
     <Button label={t("Open AI settings")} variant={variant} compact onPress={onOpenSettings} />

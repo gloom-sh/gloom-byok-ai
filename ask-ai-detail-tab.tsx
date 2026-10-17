@@ -360,7 +360,7 @@ export function AskAiResearchTab({ width, height, focused, onCapture }: TickerRe
       <PaneStatusBody
         empty
         emptyTitle={t("No AI providers are ready.")}
-        emptyMessage={t("Open any AI pane's settings to connect an account.")}
+        emptyMessage={t("Connect your own AI account (Anthropic, OpenAI, Google and more) in any AI pane's settings, or use Ask Gloom (ASKG), free with a verified Gloom account.")}
       />
     );
   }

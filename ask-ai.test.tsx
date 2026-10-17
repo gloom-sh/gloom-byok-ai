@@ -114,7 +114,8 @@ describe("AskAiTab", () => {
 
     const frame = testSetup!.captureCharFrame();
     expect(frame).toContain("No AI providers are ready.");
-    expect(frame).toContain("Open any AI pane's settings");
+    // The wall names what unlocks it: the reader's own account, or Ask Gloom.
+    expect(frame).toContain("Connect your own AI account");
   });
 
   test("focuses the input when the prompt row is clicked", async () => {
