@@ -175,7 +175,7 @@ describe("AI plugin shared provider settings", () => {
     )).toMatchObject({ type: "action", actionLabel: "Connect" });
   });
 
-  test("surfaces device codes from the native sign-in stream while the browser opens", async () => {
+  test("on a host that cannot say it on the row, device codes from the sign-in stream are toasts", async () => {
     const disconnectedCatalog = catalog([]);
     const connectedCatalog = catalog(["github-copilot"]);
     setAiRuntimeCatalog(disconnectedCatalog);
@@ -242,6 +242,85 @@ describe("AI plugin shared provider settings", () => {
       body: "GitHub Copilot is connected.",
       type: "success",
     });
+  });
+
+  test("a host that can say it on the account's row gets the sign-in, its device code and its failure there, not in toasts", async () => {
+    setAiRuntimeCatalog(catalog([]));
+    let finish: (error?: Error) => void = () => {};
+    setAiRunHost({
+      run: () => ({ done: Promise.resolve("unused"), cancel() {} }),
+      connect: (_providerId, _authType, onAuthEvent) => new Promise((resolve, reject) => {
+        onAuthEvent?.({ type: "device_code", userCode: "ABCD-EFGH", verificationUri: "https://github.com/login/device" });
+        finish = (error) => (error ? reject(error) : resolve(catalog(["github-copilot"])));
+      }),
+    });
+    const { config, panes } = setupPlugin();
+    const workspacePane = panes.find((pane) => pane.id === "local-agent-workspace");
+    const settingsContext = {
+      config,
+      layout: config.layout,
+      paneId: "agent-pane",
+      paneType: "local-agent-workspace",
+      pane: { instanceId: "agent-pane", paneId: "local-agent-workspace", title: "AI Agent" },
+      settings: {},
+      paneState: {},
+      activeTicker: null,
+      activeCollectionId: null,
+    };
+    const copilotRow = () => {
+      const settings = typeof workspacePane?.settings === "function" ? workspacePane.settings(settingsContext) : null;
+      const field = settings?.fields.find((entry) => entry.key === "account:github-copilot");
+      if (field?.type !== "action") throw new Error("Expected Copilot account action");
+      return field;
+    };
+
+    const notes: unknown[] = [];
+    const toasts: unknown[] = [];
+    let closed = 0;
+    let rowShown = true;
+    const running = copilotRow().action({
+      ...settingsContext,
+      surface: "pane-dialog",
+      close() { closed += 1; },
+      openCommandBar() {},
+      notify(notification: unknown) { toasts.push(notification); },
+      setRowNote(note: unknown) {
+        if (!rowShown) return false;
+        notes.push(note);
+        return true;
+      },
+    } as any);
+    await Promise.resolve();
+
+    // The dialog stays open on the row, which says it waits and carries the code, even reopened.
+    expect(closed).toBe(0);
+    expect(notes.at(-1)).toEqual({ status: "Waiting for sign-in", tone: "warning" });
+    expect(copilotRow().description).toBe("Enter code ABCD-EFGH at https://github.com/login/device. The sign-in page has been opened in your browser.");
+
+    finish(new Error("The device code expired."));
+    await running;
+    expect(notes.at(-1)).toEqual({ status: "Sign-in failed", text: "The device code expired.", tone: "negative" });
+    expect(copilotRow().description).toBe("Not connected.");
+    expect(toasts).toEqual([]);
+
+    // Once the dialog has closed the row is gone, and what the sign-in came to is a toast.
+    const again = copilotRow().action({
+      ...settingsContext,
+      surface: "pane-dialog",
+      close() {},
+      openCommandBar() {},
+      notify(notification: unknown) { toasts.push(notification); },
+      setRowNote(note: unknown) {
+        if (!rowShown) return false;
+        notes.push(note);
+        return true;
+      },
+    } as any);
+    await Promise.resolve();
+    rowShown = false;
+    finish();
+    await again;
+    expect(toasts.at(-1)).toMatchObject({ body: "GitHub Copilot is connected.", type: "success" });
   });
 
   test("opens the Agent pane directly while keeping every adapter in shared settings", async () => {
