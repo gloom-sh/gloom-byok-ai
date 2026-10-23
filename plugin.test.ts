@@ -175,6 +175,53 @@ describe("AI plugin shared provider settings", () => {
     )).toMatchObject({ type: "action", actionLabel: "Connect" });
   });
 
+  test("an account whose row leaves the settings once it disconnects says so in a toast", async () => {
+    // OpenRouter takes only an API key: once disconnected it has nothing to connect, so its row goes.
+    setAiRuntimeCatalog(catalog(["openrouter"]));
+    setAiRunHost({
+      run: () => ({ done: Promise.resolve("unused"), cancel() {} }),
+      disconnect: async () => catalog([]),
+    });
+    const { config, panes } = setupPlugin();
+    const workspacePane = panes.find((pane) => pane.id === "local-agent-workspace");
+    const settingsContext = {
+      config,
+      layout: config.layout,
+      paneId: "agent-pane",
+      paneType: "local-agent-workspace",
+      pane: { instanceId: "agent-pane", paneId: "local-agent-workspace", title: "AI Agent" },
+      settings: {},
+      paneState: {},
+      activeTicker: null,
+      activeCollectionId: null,
+    };
+    const accountRow = () => (
+      typeof workspacePane?.settings === "function" ? workspacePane.settings(settingsContext) : null
+    )?.fields.find((entry) => entry.key === "account:openrouter");
+    const field = accountRow();
+    if (field?.type !== "action") throw new Error("Expected OpenRouter account action");
+
+    const notes: unknown[] = [];
+    const toasts: unknown[] = [];
+    await field.action({
+      ...settingsContext,
+      surface: "pane-dialog",
+      close() {},
+      openCommandBar() {},
+      notify(notification: unknown) { toasts.push(notification); },
+      // As the host answers: the row is shown while its field is among the settings.
+      setRowNote(note: unknown) {
+        if (!accountRow()) return false;
+        notes.push(note);
+        return true;
+      },
+    } as any);
+
+    expect(accountRow()).toBeUndefined();
+    expect(notes).toEqual([{ status: "Disconnecting…", tone: "warning" }]);
+    expect(toasts).toEqual([{ body: "OpenRouter is disconnected from Gloomberb.", type: "success" }]);
+  });
+
   test("on a host that cannot say it on the row, device codes from the sign-in stream are toasts", async () => {
     const disconnectedCatalog = catalog([]);
     const connectedCatalog = catalog(["github-copilot"]);

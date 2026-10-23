@@ -131,8 +131,9 @@ type RowNoteContext = PaneSettingActionContext & { setRowNote?(note: RowNote | n
 /**
  * What an account action is doing and what stopped it go on the account's own
  * row in the settings dialog (`setRowNote`), as the app's row-message rule
- * asks. The toast is for when the row is not on screen: the dialog closed, or
- * a host too old to say it on the row.
+ * asks. The toast is for when the row is not on screen: the dialog closed,
+ * the row left the settings (an API-key account that disconnected has nothing
+ * left to connect), or a host too old to say it on the row.
  */
 function sayOnRow(
   context: RowNoteContext,
