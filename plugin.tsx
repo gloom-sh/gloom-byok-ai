@@ -1,5 +1,11 @@
 import type { AppConfig } from "gloomberb/types/config";
-import type { CliCommandDef, GloomPlugin, GloomPluginContext } from "gloomberb/types/plugin";
+import type {
+  AppNotificationRequest,
+  CliCommandDef,
+  GloomPlugin,
+  GloomPluginContext,
+  PaneSettingActionContext,
+} from "gloomberb/types/plugin";
 import { getPluginPaneStateValue } from "gloomberb/react";
 import {
   LIVE_STREAMING_QUICK_SETTING,
@@ -109,6 +115,35 @@ function settingsModels(providerIds: ReadonlySet<string>) {
     }));
 }
 
+/** A device code a sign-in is waiting on, by provider: the account's row shows it until the sign-in ends, and again if the dialog is reopened meanwhile. */
+const pendingSignIns = new Map<string, string>();
+
+/** What a settings action says on its own row: `status` where its button label is, `text` where its description is. */
+interface RowNote {
+  status: string;
+  text?: string;
+  tone: "warning" | "negative";
+}
+
+/** Newer hosts let a settings action say it on its row; declared here so the plugin still builds and loads on older ones. */
+type RowNoteContext = PaneSettingActionContext & { setRowNote?(note: RowNote | null): boolean };
+
+/**
+ * What an account action is doing and what stopped it go on the account's own
+ * row in the settings dialog (`setRowNote`), as the app's row-message rule
+ * asks. The toast is for when the row is not on screen: the dialog closed,
+ * the row left the settings (an API-key account that disconnected has nothing
+ * left to connect), or a host too old to say it on the row.
+ */
+function sayOnRow(
+  context: RowNoteContext,
+  note: RowNote | null,
+  toast?: AppNotificationRequest,
+): void {
+  if (context.setRowNote?.(note)) return;
+  if (toast) context.notify(toast);
+}
+
 function accountSettingRows(providerIds: ReadonlySet<string>): AiAccountSettingRow[] {
   return getAiRuntimeCatalog().accounts
     .filter((account) => (
@@ -120,12 +155,13 @@ function accountSettingRows(providerIds: ReadonlySet<string>): AiAccountSettingR
       return {
         providerId: account.providerId,
         providerLabel: account.providerLabel,
-        description: account.connectionLabel,
+        description: pendingSignIns.get(account.providerId) ?? account.connectionLabel,
         actionLabel: disconnectable ? "Disconnect" : "Connect",
-        async action(context) {
-          context.close();
+        async action(context: RowNoteContext) {
+          // A host that can say it on the row keeps the dialog open to show it; an older one closes it for the toasts.
+          if (!context.setRowNote) context.close();
           if (disconnectable) {
-            context.notify({
+            sayOnRow(context, { status: "Disconnecting…", tone: "warning" }, {
               body: `Disconnecting ${account.providerLabel}…`,
               type: "info",
               duration: 5_000,
@@ -135,22 +171,28 @@ function accountSettingRows(providerIds: ReadonlySet<string>): AiAccountSettingR
               const remainingAccount = catalog.accounts.find((candidate) => (
                 candidate.providerId === account.providerId
               ));
-              context.notify({
+              // The row's own label and description now say it.
+              sayOnRow(context, null, {
                 body: remainingAccount?.connectionState === "connected"
                   ? `${account.providerLabel}'s Gloomberb account was removed. ${remainingAccount.connectionLabel} remains active.`
                   : `${account.providerLabel} is disconnected from Gloomberb.`,
                 type: "success",
               });
             } catch (error) {
-              context.notify({
-                body: error instanceof Error ? error.message : `${account.providerLabel} disconnection failed.`,
+              const reason = error instanceof Error ? error.message : `${account.providerLabel} disconnection failed.`;
+              sayOnRow(context, { status: "Disconnect failed", text: reason, tone: "negative" }, {
+                body: reason,
                 type: "error",
                 persistent: true,
               });
             }
             return;
           }
-          context.notify({
+          sayOnRow(context, {
+            status: "Connecting…",
+            text: `Finish signing in to ${account.providerLabel} in the browser page that opened.`,
+            tone: "warning",
+          }, {
             body: `Opening ${account.providerLabel} sign-in in your browser…`,
             type: "info",
             duration: 5_000,
@@ -158,20 +200,27 @@ function accountSettingRows(providerIds: ReadonlySet<string>): AiAccountSettingR
           try {
             await connectAiRuntimeProvider(account.providerId, undefined, (event) => {
               if (event.type !== "device_code") return;
-              context.notify({
+              const code = `Enter code ${event.userCode} at ${event.verificationUri}. The sign-in page has been opened in your browser.`;
+              // The row's description carries the code, so it outlasts the dialog.
+              pendingSignIns.set(account.providerId, code);
+              sayOnRow(context, { status: "Waiting for sign-in", tone: "warning" }, {
                 title: `${account.providerLabel} device sign-in`,
-                body: `Enter code ${event.userCode} at ${event.verificationUri}. The sign-in page has been opened in your browser.`,
+                body: code,
                 type: "info",
                 persistent: true,
               });
             });
-            context.notify({
+            pendingSignIns.delete(account.providerId);
+            // Connected: the row's own label and description now say it.
+            sayOnRow(context, null, {
               body: `${account.providerLabel} is connected.`,
               type: "success",
             });
           } catch (error) {
-            context.notify({
-              body: error instanceof Error ? error.message : `${account.providerLabel} sign-in failed.`,
+            pendingSignIns.delete(account.providerId);
+            const reason = error instanceof Error ? error.message : `${account.providerLabel} sign-in failed.`;
+            sayOnRow(context, { status: "Sign-in failed", text: reason, tone: "negative" }, {
+              body: reason,
               type: "error",
               persistent: true,
             });

@@ -14,7 +14,7 @@ gloomberb install gloom-sh/gloom-byok-ai
 
 ## Usage
 
-Open a provider from pane settings (`PS`) and sign in; the OAuth flow opens in your browser and the credential is stored under your data directory, never sent anywhere else. Providers that only take an API key read it from their standard environment variable or from the Pi credential store.
+Open a provider from pane settings (`PS`) and sign in; the OAuth flow opens in your browser and the credential is stored under your data directory, never sent anywhere else. The provider's row in the settings dialog says how the sign-in is going, shows the code to enter when the provider asks for one, and says why a sign-in or disconnect failed. Providers that only take an API key read it from their standard environment variable or from the Pi credential store.
 
 - `AI <prompt>` opens the screener. Describe the screen in plain English; the run returns tickers with a reason each, validated against the app's own instrument search, as a reusable tab. `t` adds a screener, `e` edits its prompt, provider, or model (saving does not rerun it; `r` does), and `w` closes it. Candidates that could not be resolved are listed behind the footer's warning icon (`!`).
 - `AGENT` opens a persistent thread with the model of your choice. It holds a tool for the app's remote-control protocol, so it can read your panes and run research for you. A thread keeps the provider and model it was created with; `n` starts another thread to switch. No financial context is attached automatically: `a` attaches the ticker selected in another pane and shows exactly what will be sent, `x` removes it, and `c` cancels a reply in progress.
