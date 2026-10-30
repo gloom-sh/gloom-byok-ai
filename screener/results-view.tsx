@@ -60,8 +60,9 @@ export function AiScreenerResultsView({
   ), [activeTab?.summary, detailTextWidth]);
   // Run errors, lookup warnings and a stale prompt are the footer's; the body
   // keeps the results and says what to do when there are none.
+  // With no AI account the screener is locked: say so, and how to answer without AI.
   const providerMessage = noProvidersReady
-    ? t("Connect your own AI account (Anthropic, OpenAI, Google and more) in settings, or use Ask Gloom (ASKG), free with a verified Gloom account.")
+    ? t("Connect your own AI account (Anthropic, OpenAI, Google and more) in settings, or use Ask Gloom (ASKG), free with a verified Gloom account. Without AI, `gloom catalog <topic>` finds the function for a question.")
     : undefined;
   const settingsAction = (variant: "primary" | "secondary") => (
     <Button label={t("Open AI settings")} variant={variant} compact onPress={onOpenSettings} />
@@ -100,7 +101,9 @@ export function AiScreenerResultsView({
         ) : activeTab.results.length === 0 ? (
           <PaneStatusBody
             empty
-            emptyTitle={activeTab.lastSuccessAt ? t("No resolved matches in this run.") : t("No matches yet.")}
+            emptyTitle={noProvidersReady
+              ? t("AI screener is locked.")
+              : activeTab.lastSuccessAt ? t("No resolved matches in this run.") : t("No matches yet.")}
             emptyMessage={providerMessage}
             actions={noProvidersReady
               ? settingsAction("primary")

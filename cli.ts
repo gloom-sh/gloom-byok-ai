@@ -66,9 +66,9 @@ function configuredAiSelection(config: Record<string, unknown> | undefined): {
  * reader's own provider account runs `ai ask`; a Gloom sign-in does not.
  */
 const NO_PROVIDER_HINT = [
-  "ai ask runs on your own AI account (Anthropic, OpenAI, Google, GitHub Copilot, xAI or OpenRouter): connect one in the app's AI settings; `gloomberb ai providers` lists them.",
+  "ai ask runs on your own AI account (Anthropic, OpenAI, Google, GitHub Copilot, xAI or OpenRouter): connect one in the app's AI settings; `gloom ai providers` lists them.",
   "Ask Gloom (ASKG in the app) needs only a free, verified Gloom account.",
-  "Without AI: `gloomberb catalog <topic>` finds the function for a question, e.g. `gloomberb catalog dividends`.",
+  "Without AI: `gloom catalog <topic>` finds the function for a question, e.g. `gloom catalog dividends`.",
 ].join("\n");
 
 function connectionFailure(provider: PiCatalog["providers"][number]): string {
@@ -92,7 +92,7 @@ export function createAiCliCommand(options: CreateAiCliCommandOptions = {}): Cli
     execute: async (args, ctx) => {
       const action = args[0] ?? "providers";
       if (action !== "providers" && action !== "ask") {
-        ctx.fail("Usage: gloomberb ai providers|ask");
+        ctx.fail("Usage: gloom ai providers|ask");
       }
 
       const rawArgs = args.slice(1);
@@ -100,7 +100,7 @@ export function createAiCliCommand(options: CreateAiCliCommandOptions = {}): Cli
       const requestedModel = takeOption(rawArgs, "--model")?.trim();
       const prompt = rawArgs.join(" ").trim();
       if (action === "ask" && !prompt) {
-        ctx.fail("Usage: gloomberb ai ask [--provider id] [--model id] <prompt>");
+        ctx.fail("Usage: gloom ai ask [--provider id] [--model id] <prompt>");
       }
 
       const context = await ctx.initConfigData();
