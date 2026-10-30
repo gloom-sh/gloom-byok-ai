@@ -251,6 +251,28 @@ describe("AiScreenerPane", () => {
     expect(frame).not.toContain("provider should not run");
   });
 
+  test("with no AI account, a screener says it is locked rather than that it found nothing", async () => {
+    setDetectedProviders([]);
+    setAiRunHost({
+      run() {
+        throw new Error("no provider should run");
+      },
+      async checkStatus() {
+        return { available: false, authenticated: false, message: null };
+      },
+    });
+
+    testSetup = await testRender(
+      <ScreenerHarness prompt="Find candidates." providerId="anthropic" />,
+      { width: 120, height: 18 },
+    );
+
+    const frame = await waitForFrameToContain("AI screener is locked.");
+    expect(frame).toContain("gloom catalog <topic>");
+    expect(frame).not.toContain("No matches yet.");
+    expect(frame).not.toContain("no provider should run");
+  });
+
   test("seeds a screener from pane params and runs it immediately", async () => {
     const provider = makeProvider("anthropic", "Claude");
     installSequentialHost(

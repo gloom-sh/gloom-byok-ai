@@ -200,12 +200,25 @@ describe("headless Pi AI command", () => {
     expect(disconnected.closed()).toBe(1);
   });
 
+  test("with no provider connected, names the commands as gloom writes them", async () => {
+    const harness = createHarness({ catalog: { providers: [], refreshErrors: {} } });
+    let hint = "";
+    const context = { ...harness.context, fail(message: string, detail?: string): never {
+      hint = detail ?? "";
+      throw new Error(message);
+    } } as CliCommandContext;
+    await expect(harness.command.execute(["ask", "Hello"], context)).rejects.toThrow("No AI provider is connected.");
+    expect(hint).toContain("`gloom ai providers` lists them");
+    expect(hint).toContain("`gloom catalog <topic>`");
+    expect(hint).not.toContain("gloomberb");
+  });
+
   test("rejects unsupported verbs instead of returning a stub payload", async () => {
     const harness = createHarness({
       catalog: { providers: [], refreshErrors: {} },
     });
     await expect(harness.command.execute(["screen"], harness.context))
-      .rejects.toThrow("Usage: gloomberb ai providers|ask");
+      .rejects.toThrow("Usage: gloom ai providers|ask");
     expect(harness.output).toEqual([]);
   });
 });
